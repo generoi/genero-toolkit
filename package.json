@@ -3,7 +3,7 @@
   "displayName": "Genero Toolkit",
   "publisher": "GeneroOyAb",
   "description": "You dont need to remember all the commands related to your project, Setup your commands in [yourproject]/.vscode/genero.json and quick access them in Activity bar.",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -17,7 +17,7 @@
     "Debuggers",
     "Other"
   ],
-  "icon": "./resources/icon-light.png",
+  "icon": "./resources/logo.png",
   "activationEvents": [
     "onCommand:genero-toolkit.runCommand"
   ],

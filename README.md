@@ -1,0 +1,51 @@
+# Genero Toolkit - Plugin Description
+
+The **Genero Toolkit** extension is designed to facilitate running commands from a `genero.json` file within Visual Studio Code. It provides a tree view in the Explorer sidebar where you can see a list of commands defined in the `genero.json` file and execute them easily.
+
+## How to Use
+
+### 1. Install the Extension
+
+First, make sure you have Visual Studio Code installed. Then, follow these steps:
+
+1. Open Visual Studio Code.
+2. Go to the Extensions view (Ctrl+Shift+X).
+3. Search for "Genero Toolkit" and click Install.
+
+### 2. Define Commands in genero.json
+
+In order to use the extension, you need to define commands in the `genero.json` file. Here's how:
+
+1. Create a `genero.json` file in the `.vscode` directory of your project (if it doesn't already exist).
+2. Add commands to the `genero.json` file following the specified format. Each command should have a unique name, a title, and the command to be executed.
+3. Save the `genero.json` file.
+
+### 3. Execute Commands
+
+Once you have defined commands in the `genero.json` file, you can execute them using the extension. Here's how:
+
+1. Open your project in Visual Studio Code.
+2. Open the "Genero Commands" view from the Explorer sidebar.
+3. Expand the tree view to see the list of commands.
+4. Click on a command to execute it.
+
+## Example genero.json File
+
+Here's an example of how a `genero.json` file may look:
+
+```json
+{
+  "build": {
+    "title": "Build Project",
+    "cmd": "make"
+  },
+  "test": {
+    "title": "Run Tests",
+    "cmd": "pytest"
+  },
+  "clean": {
+    "title": "Clean Project",
+    "cmd": "make clean"
+  }
+}
+```

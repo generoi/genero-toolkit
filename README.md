@@ -35,17 +35,15 @@ Here's an example of how a `genero.json` file may look:
 
 ```json
 {
+  "ls": {
+    "title": "List Files",
+    "cmd": "ls",
+    "description": "Lists files in the project"
+  },
   "build": {
     "title": "Build Project",
-    "cmd": "make"
-  },
-  "test": {
-    "title": "Run Tests",
-    "cmd": "pytest"
-  },
-  "clean": {
-    "title": "Clean Project",
-    "cmd": "make clean"
+    "cmd": "npm run build",
+    "description": "Builds the project using npm"
   }
 }
 ```

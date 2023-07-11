@@ -16,16 +16,11 @@ export function activate(context: vscode.ExtensionContext) {
     const generoCommandsTreeId = 'generoCommands';
 
     // Create the Genero Commands tree view
-    const generoCommandsProvider = vscode.window.createTreeView(generoCommandsTreeId, {
-        treeDataProvider: {
-            // Define the function to get the child items of a tree node
-            getChildren: (element?: vscode.TreeItem): Thenable<vscode.TreeItem[]> =>
-                getGeneroCommandsTreeItems(element),
-            // Define the function to get the tree item for a node
-            getTreeItem: (element: vscode.TreeItem): vscode.TreeItem => element
-        }
+    const generoCommandsProvider = new GeneroCommandsTreeDataProvider();
+    const generoCommandsTree = vscode.window.createTreeView(generoCommandsTreeId, {
+        treeDataProvider: generoCommandsProvider
     });
-    context.subscriptions.push(generoCommandsProvider);
+    context.subscriptions.push(generoCommandsTree);
 
     // Create the root tree item for Genero Commands
     const generoCommandsItem = new vscode.TreeItem(
@@ -78,84 +73,6 @@ export function activate(context: vscode.ExtensionContext) {
         return htmlContent;
     }
 
-    // Function to get the Genero Commands tree items
-    async function getGeneroCommandsTreeItems(element?: vscode.TreeItem): Promise<vscode.TreeItem[]> {
-        const workspaceFolders = vscode.workspace.workspaceFolders;
-        const commandItems: vscode.TreeItem[] = [];
-
-        if (workspaceFolders) {
-            const generoFilePaths = workspaceFolders.map(workspaceFolder =>
-                path.join(workspaceFolder.uri.fsPath, '.vscode', 'genero.json')
-            );
-
-            for (const generoFilePath of generoFilePaths) {
-                if (fs.existsSync(generoFilePath)) {
-                    const generoCommands = fs.readFileSync(generoFilePath, 'utf8');
-
-                    try {
-                        const parsedCommands = JSON.parse(generoCommands);
-                        const commandNames = Object.keys(parsedCommands);
-
-                        for (const commandName of commandNames) {
-                            const command = parsedCommands[commandName];
-                            const commandItem = new vscode.TreeItem(
-                                command.title,
-                                vscode.TreeItemCollapsibleState.None
-                            );
-                            commandItem.command = {
-                                command: 'genero-toolkit.runCommand',
-                                title: 'Run Command',
-                                arguments: [command.cmd]
-                            };
-                            commandItems.push(commandItem);
-                        }
-                    } catch (error) {
-                        vscode.window.showErrorMessage(`Failed to parse genero.json: ${error}`);
-                    }
-                }
-            }
-        }
-
-        return Promise.resolve(commandItems);
-    }
-
-    // Function to execute a command with progress
-    async function executeCommandWithProgress(command: string, terminal: vscode.Terminal) {
-        const openTerminalCommand: vscode.Command = {
-            command: 'workbench.action.terminal.focus',
-            title: 'Open Terminal'
-        };
-
-        await vscode.window.withProgress(
-            {
-                location: vscode.ProgressLocation.Notification,
-                title: 'Running Command...',
-                cancellable: false
-            },
-            async (progress, token) => {
-                progress.report({ message: 'Executing command...' });
-
-                try {
-                    // Execute your command logic here
-                    // Replace the code below with your actual command execution code
-                    terminal.sendText(command);
-                    progress.report({
-                        increment: 100,
-                        message: `Completed! [Open Terminal](command:${openTerminalCommand.command})`
-                    });
-                    await new Promise((resolve) => setTimeout(resolve, 5000)); // Delay before progress bar disappears
-                } catch (error) {
-                    progress.report({ message: 'Command execution failed!' });
-                    vscode.window.showErrorMessage(`Command execution failed: ${error}`);
-                } finally {
-                    if (!vscode.window.terminals.includes(terminal)) {
-                        terminal.dispose(); // Dispose the terminal when progress is complete and the link is not clicked
-                    }
-                }
-            }
-        );
-    }
-
     // Register the command to run a Genero command
     vscode.commands.registerCommand('genero-toolkit.runCommand', (command: string) => {
         const activeTerminal = vscode.window.activeTerminal;
@@ -166,7 +83,123 @@ export function activate(context: vscode.ExtensionContext) {
             executeCommandWithProgress(command, newTerminal);
         }
     });
+
+    // Register a file system watcher for genero.json
+    const generoJsonPath = path.join(vscode.workspace.workspaceFolders?.[0].uri.fsPath || '', '.vscode', 'genero.json');
+    const generoJsonWatcher = vscode.workspace.createFileSystemWatcher(generoJsonPath);
+    context.subscriptions.push(generoJsonWatcher);
+
+    // Handle file change events
+    generoJsonWatcher.onDidChange(handleGeneroJsonChange);
+    generoJsonWatcher.onDidCreate(handleGeneroJsonChange);
+
+    function handleGeneroJsonChange() {
+        generoCommandsProvider.refresh();
+    }
 }
 
 // Deactivate the extension
-export function deactivate() { }
+export function deactivate() {}
+
+// Function to execute a command with progress
+async function executeCommandWithProgress(command: string, terminal: vscode.Terminal) {
+    const openTerminalCommand: vscode.Command = {
+        command: 'workbench.action.terminal.focus',
+        title: 'Open Terminal'
+    };
+
+    await vscode.window.withProgress(
+        {
+            location: vscode.ProgressLocation.Notification,
+            title: 'Running Command...',
+            cancellable: false
+        },
+        async (progress, token) => {
+            progress.report({ message: 'Executing command...' });
+
+            try {
+                // Execute your command logic here
+                // Replace the code below with your actual command execution code
+                terminal.sendText(command);
+                progress.report({
+                    increment: 100,
+                    message: `Completed! [Open Terminal](command:${openTerminalCommand.command})`
+                });
+                await new Promise((resolve) => setTimeout(resolve, 5000)); // Delay before progress bar disappears
+            } catch (error) {
+                progress.report({ message: 'Command execution failed!' });
+                vscode.window.showErrorMessage(`Command execution failed: ${error}`);
+            } finally {
+                if (!vscode.window.terminals.includes(terminal)) {
+                    terminal.dispose(); // Dispose the terminal when progress is complete and the link is not clicked
+                }
+            }
+        }
+    );
+}
+
+// Tree data provider class for Genero Commands tree
+class GeneroCommandsTreeDataProvider implements vscode.TreeDataProvider<vscode.TreeItem> {
+    private _onDidChangeTreeData: vscode.EventEmitter<vscode.TreeItem | undefined | null | void> = new vscode.EventEmitter<
+        vscode.TreeItem | undefined | null | void
+    >();
+
+    readonly onDidChangeTreeData: vscode.Event<vscode.TreeItem | undefined | null | void> = this._onDidChangeTreeData
+        .event;
+
+    getTreeItem(element: vscode.TreeItem): vscode.TreeItem {
+        return element;
+    }
+
+    getChildren(element?: vscode.TreeItem): Thenable<vscode.TreeItem[]> {
+        return new Promise((resolve) => {
+            if (!element) {
+                // Root level, return the commands
+                const commands = this.getGeneroCommands();
+                resolve(commands);
+            } else {
+                // No children for command items
+                resolve([]);
+            }
+        });
+    }
+
+    refresh(): void {
+        this._onDidChangeTreeData.fire();
+    }
+
+    private getGeneroCommands(): vscode.TreeItem[] {
+        const generoJsonPath = path.join(
+            vscode.workspace.workspaceFolders?.[0].uri.fsPath || '',
+            '.vscode',
+            'genero.json'
+        );
+
+        if (fs.existsSync(generoJsonPath)) {
+            const generoCommands = fs.readFileSync(generoJsonPath, 'utf8');
+
+            try {
+                const parsedCommands = JSON.parse(generoCommands);
+                const commandNames = Object.keys(parsedCommands);
+                const commandItems: vscode.TreeItem[] = [];
+
+                for (const commandName of commandNames) {
+                    const command = parsedCommands[commandName];
+                    const commandItem = new vscode.TreeItem(command.title, vscode.TreeItemCollapsibleState.None);
+                    commandItem.command = {
+                        command: 'genero-toolkit.runCommand',
+                        title: 'Run Command',
+                        arguments: [command.cmd]
+                    };
+                    commandItems.push(commandItem);
+                }
+
+                return commandItems;
+            } catch (error) {
+                vscode.window.showErrorMessage(`Failed to parse genero.json: ${error}`);
+            }
+        }
+
+        return [];
+    }
+}
